@@ -1,0 +1,96 @@
+// PRODUCTOR - CONSUMIDOR CON BUFFER LIMITADO (semaforos) - jBACI
+// Autor: Marcos Sanchez Garcia - I2ADE
+//
+// Idea: el buffer tiene N huecos en circulo. El productor deja paquetes
+// y el consumidor los recoge. Se usan tres semaforos:
+//   huecos   -> SINCRONIZACION: cuenta los huecos libres y por tanto bloquea al productor si esta lleno.
+//   ocupados -> SINCRONIZACION: cuenta los paquetes que hay y por tanto bloquea al consumidor si esta vacio.
+//   mutex    -> EXCLUSION MUTUA: solo un proceso a la vez toca el buffer y sus indices
+
+#include "gdefs.cm"
+
+const
+    int NUM_HUECOS = 5;                
+    int NUM_PAQUETES = 12;           
+
+    int PRODUCTOR_ICON = 101;  int CONSUMIDOR_ICON = 103;   
+    int ID_MARCOS = 10;       
+    int ID_PAQUETES = 20;        
+
+    int HUECO_X0 = 40;  int SEP = 100;  int HUECO_Y = 300; 
+    int PROD_X = 190;   int PROD_Y = 170;                   
+    int CONS_X = 480;   int CONS_Y = 140;                   
+
+// ---- Semaforos ----
+semaphore huecos = NUM_HUECOS;      
+semaphore ocupados = 0;   
+binarysem mutex = 1;       
+
+// ---- Buffer circular: indices compartidos ----
+int entrada = 0;           
+int salida = 0;          
+
+void productor() {
+	int i;
+	int pos;
+	for (i = 1; i <=NUM_PAQUETES ; i++) {
+		// Tarea propia del productor, sin acceso al buffer compartido
+		cout << "Productor: fabrico paquete " << i << endl;
+		moveby(PRODUCTOR_ICON, 0, -10);
+		moveby(PRODUCTOR_ICON, 0, 10);
+
+		wait(huecos);      
+		wait(mutex);       
+		pos = entrada;
+		entrada = (entrada + 1) % NUM_HUECOS;
+		moveto(ID_PAQUETES + pos, PROD_X, PROD_Y);
+		makevisible(ID_PAQUETES+ pos, 1);
+		moveto(ID_PAQUETES + pos, HUECO_X0 + pos * SEP + 2, HUECO_Y + 2);
+		cout << "Productor: dejo paquete " << i << " en el hueco " << pos << endl;
+		signal(mutex);     
+		signal(ocupados);  
+	}
+}
+
+void consumidor() {
+	int i;
+	int pos;
+	int k;
+	for (i = 1; i <= NUM_PAQUETES; i++) {
+		wait(ocupados);    
+		wait(mutex);       
+		pos = salida;
+		salida = (salida + 1) % NUM_HUECOS;
+		moveto(ID_PAQUETES + pos, CONS_X, CONS_Y);
+		makevisible(ID_PAQUETES + pos, 0);
+		cout << "Consumidor: cojo paquete del hueco " << pos << endl;
+		signal(mutex);     
+		signal(huecos);   
+
+		//Tarea propia del consumidor
+		for (k = 1; k <= 4; k++) {
+			moveby(CONSUMIDOR_ICON, 0, -10);
+			moveby(CONSUMIDOR_ICON, 0, 10);
+		}
+		cout << "Consumidor: he consumido el paquete " << i << endl;
+	}
+}
+
+void main() {
+	int i;
+
+	
+	for (i = 0; i < NUM_HUECOS; i++) {
+		create(ID_MARCOS + i, LINE_RECTANGLE, BLACK, HUECO_X0 + i * SEP, HUECO_Y, 80, 60);
+		create(ID_PAQUETES + i, ANIMAGE, 0, HUECO_X0 + i * SEP + 2, HUECO_Y + 2, 77, 57);
+		makevisible(ID_PAQUETES + i, 0);
+	}
+
+	create(PRODUCTOR_ICON, ANIMAGE, 0, 10, 10, 269, 155);
+	create(CONSUMIDOR_ICON, ANIMAGE, 0, 470, 30, 104, 104);
+
+	cobegin {
+		productor();
+		consumidor();
+	}
+}
