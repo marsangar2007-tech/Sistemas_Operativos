@@ -12,7 +12,7 @@
 #define KTAM 20
 #define KPUERTO 9999
 #define KCOLA 5
-#define KFICHERO "contenido.txt"
+#define KFICHERO "Google.html"
 
 /* SERVIDOR CONCURRENTE.
     1- el padre espera conexiones en accept.
